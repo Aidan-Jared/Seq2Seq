@@ -11,3 +11,5 @@ With this done, the parameters for the input and output matrix where found baise
 With all of this done it was time to move onto builing the model
 
 ## Model
+
+The model is structured into three parts, the encoder, the decoder and the dense activation layer. The encoder and decoder are LSTM layers with a size of the lattent_dim which in the case of the keras tutorial is 256. The encoder takes as an input the hot encoded english text and puts out an output and the states of the encoder. The encoder output is ingnored and the encoder states are given to the decoder. The decoder takes in the hot encoded french text but also is given the intial state from the encoder. The decoder then takes its ouput into a softmax dense layer the size of the number of tokens and trys to predict the end of the sequence.

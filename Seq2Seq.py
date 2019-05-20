@@ -42,15 +42,33 @@ if __name__ == "__main__":
     target_token_index = dict([(i, index) for index, i in enumerate(target_chars)])
 
     # creating empty input matrix
-    encoder_input = np.zeros((len(input_texts), max_encoder_seq, num_encoder_tokens), dtype='float32')
-    decoder_input = np.zeros((len(target_texts), max_decoder_seq, num_decoder_tokens), dtype='float32')
-    decoder_target = np.zeros((len(input_texts), max_decoder_seq, num_decoder_tokens), dtype='float32')
+    encoder_input_data = np.zeros((len(input_texts), max_encoder_seq, num_encoder_tokens), dtype='float32')
+    decoder_input_data = np.zeros((len(target_texts), max_decoder_seq, num_decoder_tokens), dtype='float32')
+    decoder_target_data = np.zeros((len(input_texts), max_decoder_seq, num_decoder_tokens), dtype='float32')
 
     # hot encoding input matrix
     for index, (input_text, target_text) in enumerate(zip(input_texts, target_texts)):
         for j, char in enumerate(input_text):
-            encoder_input[index, j, input_token_index[char]] = 1
+            encoder_input_data[index, j, input_token_index[char]] = 1
         for j, char in enumerate(target_text):
-            decoder_input[index, j, target_token_index[char]] = 1
+            decoder_input_data[index, j, target_token_index[char]] = 1
             if j > 0:
-                decoder_target[index, j - 1, target_token_index[char]] = 1
+                decoder_target_data[index, j - 1, target_token_index[char]] = 1
+
+    # Building the encoder
+    encoder_input = Input(shape=(None, num_encoder_tokens))
+    encoder = LSTM(latent_dim, return_state=True)
+    encoder_outputs, state_h, state_c = encoder(encoder_input)
+    encoder_states = [state_h, state_c]
+
+    # Building the Decoder
+    decoder_input = Input(shape=(None, num_decoder_tokens))
+    decoder_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
+    decoder_outputs, _, _ = decoder_lstm(decoder_input, initial_state=encoder_states)
+    decoder_dense = Dense(num_decoder_tokens, activation='softmax')
+    decoder_outputs = decoder_dense(decoder_outputs)
+
+    # training the model
+    model = Model([encoder_input, decoder_input], decoder_outputs)
+    model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
+    model.fit([encoder_input_data, decoder_input_data], decoder_target_data, batch_size=batch_size, epochs=epochs, validation_split=.2)
