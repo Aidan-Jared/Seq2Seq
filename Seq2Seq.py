@@ -70,5 +70,5 @@ if __name__ == "__main__":
 
     # training the model
     model = Model([encoder_input, decoder_input], decoder_outputs)
-    model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
+    model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
     model.fit([encoder_input_data, decoder_input_data], decoder_target_data, batch_size=batch_size, epochs=epochs, validation_split=.2)
