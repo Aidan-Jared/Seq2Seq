@@ -2,6 +2,26 @@ from keras.models import Model
 from keras.layers import Input, LSTM, Dense
 import numpy as np
 
+def decode_seq(input_seq):
+    states_value = encoder_model.predict(input_seq)
+
+    target_seq = np.zeros((1,1, num_decoder_tokens))
+    target_seq[0,0, target_token_index['\t']] = 1
+    stop_condition = False
+    decoded_sentence = ''
+
+    while not stop_condition:
+        output_tokens, h, c = decoder_model.predict([target_seq] + states_value)
+        sampled_token_index = np.argmax(output_tokens[0,-1,:])
+        sampled_char = reverse_target_char_index[sampled_token_index]
+        decoded_sentence += sampled_char
+        if sampled_char == '\n' or len(decoded_sentence) > max_decoder_seq:
+            stop_condition = True
+        target_seq = np.zeros((1,1, num_decoder_tokens))
+        target_seq[0,0,sampled_token_index] = 1
+        states_value = [h, c]
+    return decoded_sentence
+
 if __name__ == "__main__":
     # setting parameters
     batch_size = 64
@@ -72,3 +92,25 @@ if __name__ == "__main__":
     model = Model([encoder_input, decoder_input], decoder_outputs)
     model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
     model.fit([encoder_input_data, decoder_input_data], decoder_target_data, batch_size=batch_size, epochs=epochs, validation_split=.2)
+    model.save('s2s.h5')
+
+    # sampling model
+    encoder_model = Model(encoder_input, encoder_states)
+
+    decoder_state_input_h = Input(shape=(latent_dim,))
+    decoder_state_input_c = Input(shape=(latent_dim,))
+    decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
+    decoder_outputs, state_h, state_c = decoder_lstm(decoder_input, initial_state=decoder_states_inputs)
+    decoder_states = [state_h, state_c]
+    decoder_outputs = decoder_dense(decoder_outputs)
+    decoder_model = Model([decoder_input] + decoder_states_inputs, [decoder_outputs] + decoder_states)
+
+    reverse_input_char_index = dict((i, char) for char, i in input_token_index.items())
+    reverse_target_char_index = dict((i, char) for char, i in target_token_index.items())
+
+    for seq_index in range(100):
+        input_seq = encoder_input_data[seq_index: seq_index + 1]
+        sentence = decode_seq(input_seq)
+        print('-')
+        print('Input sentence: ', input_texts[seq_index])
+        print('Decoded sentence: ', sentence)
